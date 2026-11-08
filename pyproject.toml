@@ -10,7 +10,7 @@ authors = [
 ]
 description = "A bunch of scriptable audio transforms based on the torchaudio backend"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 license = "GPL-3.0-or-later"
 license-files = ["LICEN[CS]E*"]
 classifiers = [
@@ -23,7 +23,6 @@ keywords = ["audio", "torchscript", "stft", "spectrogram", "torchaudio"]
 dependencies = [
     "torch>=1.10",
     "torchaudio>=0.10",
-    "numpy>=1.19.1",
 ]
 
 [project.optional-dependencies]

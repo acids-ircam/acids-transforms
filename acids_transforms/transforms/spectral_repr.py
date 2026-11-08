@@ -1,7 +1,6 @@
 from numbers import Real
 from enum import Enum
 
-from numpy import reshape
 from .base import AudioTransform, InversionEnumType
 from ..utils.misc import *
 from .stft import STFT
