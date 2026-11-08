@@ -92,7 +92,7 @@ def _check(py: str, tv: str, args) -> str:
         if args.no_tests:
             return "OK"
         tests = [] if args.full else (args.tests or QUICK_TESTS)
-        cmd = [str(pybin), "-m", "pytest", "-q", "-x", "-p", "no:cacheprovider", *tests]
+        cmd = [str(pybin), "-m", "pytest", "-q", "-p", "no:cacheprovider", *tests]
         if args.k:
             cmd += ["-k", args.k]
         rc = run(cmd, log, timeout=args.timeout)

@@ -1,5 +1,12 @@
 # acids_transforms
 
+[![Documentation Status](https://readthedocs.org/projects/acids-transforms/badge/?version=latest)](https://acids-transforms.readthedocs.io/en/latest/)
+[![Docs build](https://github.com/domkirke/acids_transforms/actions/workflows/docs.yml/badge.svg)](https://github.com/domkirke/acids_transforms/actions/workflows/docs.yml)
+[![Python](https://img.shields.io/badge/python-%3E%3D3.8-blue.svg)](https://www.python.org/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-ee4c2c.svg?logo=pytorch&logoColor=white)](https://pytorch.org/)
+
+Full documentation, with tutorials and API reference : **https://acids-transforms.readthedocs.io**
+
 ## Description
 
 A bunch of scriptable audio transforms based on the torchaudio backend, embeddable in Python/C++ with TorchScript for real-time purposes.
@@ -34,12 +41,16 @@ Transpose | yes | yes
 ## Installation
 
 ```bash
-git clone https://github.com/domkirke/acids_transforms.git
-cd acids_transforms
-pip install .
+pip install acids-transforms
 ```
 
-For development, `pip install -e ".[test]"` installs the package in editable mode, with pytest.
+or
+
+```bash
+pip install git+https://github.com/acids-ircam/acids-transforms.git
+```
+
+For development, `pip install -e ".[test]"` installs the package in editable mode, with pytest and nn_tilde.
 
 ## Usage
 

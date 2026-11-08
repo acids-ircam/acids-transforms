@@ -7,6 +7,8 @@
     pytest test/test_devices.py                 # all available devices
     pytest test/test_devices.py -k cuda         # only cuda
 """
+import functools
+import re
 import pytest
 import torch
 from acids_transforms import transforms, AudioTransform
@@ -32,6 +34,21 @@ RTOL, ATOL = 1e-3, 1e-4
 # may differ from cpu on at most this fraction of elements
 MAX_MISMATCH = 1e-2
 SR = 44100
+
+
+def skip_unsupported_ops(test):
+    """skips (instead of failing) when torch has no kernel for an op on the tested device, e.g. older torch versions
+    lack many mps kernels (aten::unfold before 1.13, fft before 2.1, angle before 2.7...)."""
+    @functools.wraps(test)
+    def wrapper(*args, **kwargs):
+        try:
+            return test(*args, **kwargs)
+        except NotImplementedError as e:
+            match = re.search(r"operator '([\w:.]+)' is not current(?:ly)? implemented for the (\w+) device", str(e))
+            if match is None:
+                raise
+            pytest.skip(f"torch {torch.__version__} has no {match.group(2)} kernel for {match.group(1)}")
+    return wrapper
 
 
 def get_audio_transforms():
@@ -123,6 +140,7 @@ def assert_finite(y, what: str):
 
 @pytest.mark.parametrize("device", DEVICES)
 @pytest.mark.parametrize("transform_type", get_audio_transforms())
+@skip_unsupported_ops
 def test_device_forward(transform_type, device):
     x = make_input(transform_type)
     transform_cpu = build(transform_type, x)
@@ -147,6 +165,7 @@ def test_device_forward(transform_type, device):
 
 @pytest.mark.parametrize("device", DEVICES)
 @pytest.mark.parametrize("transform_type", get_audio_transforms())
+@skip_unsupported_ops
 def test_device_inversion_modes(transform_type, device):
     """every inversion mode runs on the device (no cpu comparison : some modes are random, e.g. random phase).
     Uses a short input, as phase reconstruction (e.g. PGHI) loops over bins and is very slow on gpus."""
@@ -166,6 +185,7 @@ def test_device_inversion_modes(transform_type, device):
 
 @pytest.mark.parametrize("device", DEVICES)
 @pytest.mark.parametrize("transform_type", [t for t in get_audio_transforms() if build(t).scriptable])
+@skip_unsupported_ops
 def test_device_scripted(transform_type, device):
     x = make_input(transform_type)
     transform = build(transform_type, x)
