@@ -1,6 +1,6 @@
 # acids_transforms
 
-[![Documentation](https://app.readthedocs.org/projects/acids-transforms/badge/?version=latest)
+[![Documentation](https://app.readthedocs.org/projects/acids-transforms/badge/?version=latest)](https://acids-transforms.readthedocs.io/en/latest/)
 [![Python](https://img.shields.io/badge/python-%3E%3D3.8-blue.svg)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-ee4c2c.svg?logo=pytorch&logoColor=white)](https://pytorch.org/)
 
