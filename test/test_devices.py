@@ -16,14 +16,19 @@ from acids_transforms.transforms.spectral_repr import _Representation, SpectralR
 from acids_transforms.utils.misc import frame
 
 
+def _torch_version():
+    return tuple(int(v) for v in re.findall(r"\d+", torch.__version__)[:2])
+
+
 def _mps_available() -> bool:
-    mps = getattr(torch.backends, "mps", None)  # torch >= 1.12
-    return mps is not None and mps.is_available()
+    # mps is a prototype in torch 1.12 / 1.13, and may abort the whole process : only tested from torch 2.0
+    mps = getattr(torch.backends, "mps", None)
+    return _torch_version() >= (2, 0) and mps is not None and mps.is_available()
 
 
 DEVICES = [
     pytest.param("cpu", id="cpu"),
-    pytest.param("mps", id="mps", marks=pytest.mark.skipif(not _mps_available(), reason="mps not available")),
+    pytest.param("mps", id="mps", marks=pytest.mark.skipif(not _mps_available(), reason="mps not available (or torch < 2.0)")),
     pytest.param("cuda", id="cuda",
                  marks=pytest.mark.skipif(not torch.cuda.is_available(), reason="cuda not available")),
 ]

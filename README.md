@@ -1,7 +1,6 @@
 # acids_transforms
 
-[![Documentation Status](https://readthedocs.org/projects/acids-transforms/badge/?version=latest)](https://acids-transforms.readthedocs.io/en/latest/)
-[![Docs build](https://github.com/domkirke/acids_transforms/actions/workflows/docs.yml/badge.svg)](https://github.com/domkirke/acids_transforms/actions/workflows/docs.yml)
+[![Documentation](https://app.readthedocs.org/projects/acids-transforms/badge/?version=latest)
 [![Python](https://img.shields.io/badge/python-%3E%3D3.8-blue.svg)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-ee4c2c.svg?logo=pytorch&logoColor=white)](https://pytorch.org/)
 
