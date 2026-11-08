@@ -27,10 +27,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-test = [
-  "pytest", 
-  "nn_tilde @ git+https://github.com/acids-ircam/nn_tilde"
-]
+# nn_tilde (needed by test/test_nn_tilde.py) is not listed : PyPI rejects git dependencies. Install it with
+# pip install git+https://github.com/acids-ircam/nn_tilde
+test = ["pytest"]
 
 [project.urls]
 Homepage = "https://github.com/domkirke/acids_transforms"

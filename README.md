@@ -49,7 +49,7 @@ or
 pip install git+https://github.com/acids-ircam/acids-transforms.git
 ```
 
-For development, `pip install -e ".[test]"` installs the package in editable mode, with pytest and nn_tilde.
+For development, `pip install -e ".[test]"` installs the package in editable mode, with pytest ; `test/test_nn_tilde.py` also needs `pip install git+https://github.com/acids-ircam/nn_tilde`.
 
 ## Usage
 
