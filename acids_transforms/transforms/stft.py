@@ -4,6 +4,7 @@ from torchaudio.functional import griffinlim
 import math
 from .base import AudioTransform, InversionEnumType, _CanTrace, make_fx
 from .oadd import OverlapAdd
+from .sinebank import SineBank
 from typing import Dict, List, Optional, Tuple, Union
 from ..utils.misc import *
 
@@ -71,6 +72,7 @@ class STFT(AudioTransform):
 
     mode is a mode, or a list of modes stacked on a new axis ((..., n_modes, n_frames, n_fft // 2 + 1)). Outputs are
     complex if "complex" is given (other modes are then cast to complex values), and real otherwise. Modes :
+
         - "complex" : complex STFT (default).
         - "magnitude", "power", "db" (10 log10 power) : magnitude and power spectra.
         - "phase", "real", "imaginary" : phase (radians, in [-pi, pi]), real and imaginary parts.
@@ -128,6 +130,7 @@ class STFT(AudioTransform):
         self.register_buffer("eps",  torch.tensor(
             torch.finfo(dtype).eps, dtype=dtype))
         self.register_buffer("phase_buffer", torch.zeros(0))
+        self.sinebank = SineBank()
 
         # set up window
         window = "rectangular" if window is None else window
@@ -420,7 +423,7 @@ class STFT(AudioTransform):
         elif (inversion_mode == "random"):
             return self._istft(torch.polar(x, 2 * math.pi * torch.rand_like(x)))
         elif (inversion_mode == "sinebank"):
-            return self.get_sinebank_inversion(x)
+            return self._istft(self.get_sinebank_inversion(x, False))
         else:
             raise ValueError("inversion mode %s not valid." % inversion_mode)
 
@@ -438,21 +441,13 @@ class STFT(AudioTransform):
     def griffin_lim(self, x: torch.Tensor) -> torch.Tensor:
         n_fft = self.n_fft
         hop_length = self.hop_length
-        window = self.inv_window[:n_fft]
+        window = self.window[:n_fft]
         return griffinlim(x.transpose(-2, -1), window, n_fft, hop_length, n_fft, 1.0, 30, 0.99, None, True)
 
-    def get_sinebank_inversion(self, x_fft):
-        bpad = (1,) * len(x_fft.shape[:-2])
-        fft_frequencies = torch.linspace(0, self.sr/2, int(self.n_fft / 2 + 1)).view(bpad+(-1, 1))
-        random_phase = 2 * torch.pi * torch.rand(fft_frequencies.shape[-2], 1)
-        x_fft = x_fft / x_fft.abs().max()
-        final_length = self.hop_length * x_fft.shape[-2] + self.n_fft
-        t = torch.linspace(0, final_length / self.sr, final_length).view(bpad+(1, -1))
-        enveloppes = torch.nn.functional.interpolate(x_fft.transpose(-2, -1), final_length, mode="linear") / (2 * torch.pi)
-        x = enveloppes * torch.sin(2 * torch.pi * fft_frequencies * t + random_phase)
-        x = x.sum(-2)
-        x = x / x.max()
-        return x
+    def get_sinebank_inversion(self, magnitude: torch.Tensor, keep_state: bool = True) -> torch.Tensor:
+        """complex spectrum of the sinusoidal resynthesis of magnitude (see SineBank) ; with keep_state, phases of
+        partials are continued from the last call."""
+        return self.sinebank(magnitude, self.window[:self.win_length], self.n_fft, self.hop_length, self.sr, keep_state)
 
     # TESTS
     def test_inversion(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
@@ -477,6 +472,7 @@ class STFT(AudioTransform):
                 x_inv = transform.invert(x_t.abs(), inversion_mode=inv_type)
 
     # inversion modes that cannot be traced (data-dependent python control flow or state)
+    # keep_input depends on the last forward call (the sine bank is traced as an opaque operator)
     untracable_inversion_modes = ["keep_input"]
 
     @classmethod
@@ -544,8 +540,6 @@ class RealtimeSTFT(STFT):
         super().__init__(sr=sr, n_fft=n_fft, hop_length=hop_length, dtype=dtype, inversion_mode=inversion_mode,
                          window=window, win_length=win_length, center=False, pad_mode="constant", mode=mode)
         self.batch_size = batch_size
-        self.register_buffer('random_phase', 2 * torch.pi * torch.rand(int(self.n_fft / 2 + 1)))
-        self.register_buffer('time_index', torch.tensor(0.))
         # phases of the last analyzed frame, and of the last synthesized frame (instantaneous modes)
         self.register_buffer('last_phase', torch.zeros(0))
         self.register_buffer('last_inv_phase', torch.zeros(0))
@@ -596,7 +590,7 @@ class RealtimeSTFT(STFT):
 
     @torch.jit.export
     def reset(self) -> None:
-        self.time_index = torch.zeros_like(self.time_index)
+        self.sinebank.reset()
         self.last_phase = torch.zeros(0, device=self.last_phase.device)
         self.last_inv_phase = torch.zeros(0, device=self.last_inv_phase.device)
 
@@ -646,23 +640,6 @@ class RealtimeSTFT(STFT):
     def set_batch_size(self, batch_size: int):
         self.batch_size = batch_size
 
-    def get_sinebank_inversion(self, x_fft):
-        batch_shape = x_fft.shape[:-2]
-        bpad = (1,) * len(batch_shape)
-        if (batch_shape != self.random_phase.shape[:-2]):
-            self.random_phase = 2 * torch.pi * torch.rand(batch_shape + (1, x_fft.size(-1)))
-        # construct phase
-        t = torch.arange(self.n_fft).unsqueeze(0) + torch.arange(x_fft.size(-2)).unsqueeze(1) * self.hop_length
-        t = (t / self.sr + self.time_index).view(bpad + (t.shape[0], 1, t.shape[1]))
-        # get frequencies
-        fft_frequencies = torch.linspace(0, self.sr/2, int(self.n_fft / 2 + 1)).view(bpad + (1, -1, 1))
-        # get sines
-        sines = torch.sin(2 * torch.pi * fft_frequencies * t + self.random_phase.view(batch_shape + (1, -1, 1)))
-        x = x_fft.unsqueeze(-1) * sines
-        x = x.sum(-2) / x_fft.size(-1)
-        self.time_index += (x_fft.size(-2) * self.hop_length + self.n_fft) / self.sr
-        return x
-
     def invert_without_phase(self, x: torch.Tensor, inversion_mode: InversionEnumType = None) -> torch.Tensor:
         if inversion_mode is None:
             inversion_mode = self.inversion_mode
@@ -671,8 +648,8 @@ class RealtimeSTFT(STFT):
         elif (inversion_mode == "random"):
             phase = 2 * math.pi * torch.rand_like(x)
         elif (inversion_mode == "sinebank"):
-            win_length = self.win_length
-            return self.get_sinebank_inversion(x)[..., :win_length] * self.inv_window[:win_length]
+            # phases of partials are continued from the last call
+            return self._synthesis(self.get_sinebank_inversion(x))
         else:
             raise ValueError("inversion mode %s not valid." %
                     self.inversion_mode)

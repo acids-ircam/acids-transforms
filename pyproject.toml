@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools >= 77.0.3"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "acids_transforms"
+version = "0.1.4"
+authors = [
+  { name="Axel Chemla Romeu Santos", email="axel.chemla-romeu-santos@univ-paris8.fr" },
+]
+description = "A bunch of scriptable audio transforms based on the torchaudio backend"
+readme = "README.md"
+requires-python = ">=3.8"
+license = "GPL-3.0-or-later"
+license-files = ["LICEN[CS]E*"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "Topic :: Multimedia :: Sound/Audio :: Analysis",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+keywords = ["audio", "torchscript", "stft", "spectrogram", "torchaudio"]
+dependencies = [
+    "torch>=1.10",
+    "torchaudio>=0.10",
+    "numpy>=1.19.1",
+]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[project.urls]
+Homepage = "https://github.com/domkirke/acids_transforms"
+Issues = "https://github.com/domkirke/acids_transforms/issues"
+
+[tool.setuptools.packages.find]
+# only package acids_transforms (excludes test/, build/ and top-level scripts)
+include = ["acids_transforms*"]
+
+[tool.pytest.ini_options]
+testpaths = ["test"]

@@ -1,8 +1,8 @@
 from argparse import ArgumentError
 from typing import Tuple, List
 
-import torch.lib
 from . import heapq
+from .tracing import opaque_op, select_implementation
 import torch
 import os
 import torchaudio
@@ -147,17 +147,65 @@ def pad(tensor: torch.Tensor, target_size: int, dim: int):
     return torch.cat([tensor, cat_tensor], dim=dim)
 
 
-@torch.library.custom_op("acids_transforms::frame", mutates_args=())
+def _frame(x: torch.Tensor, frame_length: int, hop_length: int, dim: int, librosa_order: bool) -> torch.Tensor:
+
+    if frame_length <= 0 or hop_length <= 0:
+        raise ValueError("frame_length and hop_length must be positive integers")
+
+    ndim = x.dim()
+    dim = dim if dim >= 0 else (ndim + dim)
+    if not (0 <= dim < ndim):
+        raise ValueError("axis out of range for tensor with dim=" + str(ndim) + ": got " + str(dim))
+
+    x_m = x.movedim(dim, -1)  # bring target axis to the end
+    n = x_m.shape[-1]
+    if n < frame_length:
+        raise ValueError("Input length along axis (" + str(n) + ") is smaller than frame_length (" + str(frame_length) + ")")
+
+    # Unfold replaces the framed axis by n_frames and appends a new trailing dimension of size frame_length
+    y = x_m.unfold(-1, frame_length, hop_length)  # shape: [..., n_frames, frame_length]
+
+    if librosa_order:
+        # Move the new trailing frame_length dim before the n_frames dim
+        y = y.movedim(-1, -2)  # [..., frame_length, n_frames]
+
+    return y
+
+
+def _frame_copy(x: torch.Tensor, frame_length: int, hop_length: int, dim: int, librosa_order: bool) -> torch.Tensor:
+    # custom operators cannot return views of their inputs
+    return _frame(x, frame_length, hop_length, dim, librosa_order).clone()
+
+
+def _frame_fake(x, frame_length, hop_length, dim, librosa_order):
+    dim = dim if dim >= 0 else x.dim() + dim
+    shape = list(x.shape)
+    n_frames = (shape.pop(dim) - frame_length) // hop_length + 1
+    shape += [frame_length, n_frames] if librosa_order else [n_frames, frame_length]
+    return x.new_empty(shape)
+
+
+_frame_op = opaque_op("acids_transforms::frame", _frame_fake)(_frame_copy)
+
+
+@torch.jit.unused
+def _frame_eager(x: torch.Tensor, frame_length: int, hop_length: int, dim: int, librosa_order: bool) -> torch.Tensor:
+    return select_implementation(_frame, _frame, _frame_op)(x, frame_length, hop_length, dim, librosa_order)
+
+
 def frame(x: torch.Tensor, frame_length: int, hop_length: int, dim: int = -1, librosa_order: bool = False) -> torch.Tensor:
     """
     Create overlapping frames (sliding windows) of length frame_length along axis
     with hop size hop_length.
 
+    Scriptable with TorchScript (compiles to aten::unfold, so it runs in libtorch / nn~). While tracing with make_fx,
+    it is a single opaque node with the "custom_op" backend, and aten::unfold with the "pure" one (see utils.tracing).
+
     Args:
         x: torch.Tensor
         frame_length: window length (int > 0)
         hop_length: hop size (int > 0)
-        axis: axis along which to frame (default: -1)
+        dim: axis along which to frame (default: -1)
         librosa_order: if True, return shape [..., frame_length, n_frames] to match librosa.util.frame;
                     if False, return shape [..., n_frames, frame_length] (PyTorch unfold default order).
 
@@ -171,33 +219,9 @@ def frame(x: torch.Tensor, frame_length: int, hop_length: int, dim: int = -1, li
         - This is a view; use .contiguous() or .clone() if you need a copy.
         - Raises if `frame_length > length along axis`.
     """
-    if frame_length <= 0 or hop_length <= 0:
-        raise ValueError("frame_length and hop_length must be positive integers")
-
-    ndim = x.dim()
-    dim = dim if dim >= 0 else (ndim + dim)
-    if not (0 <= dim < ndim):
-        raise ValueError(f"axis out of range for tensor with dim={ndim}: got {dim}")
-
-    x_m = x.clone().movedim(dim, -1)  # bring target axis to the end
-    n = x_m.shape[-1]
-    if n < frame_length:
-        raise ValueError(f"Input length along axis ({n}) is smaller than frame_length ({frame_length})")
-
-    # Unfold replaces the framed axis by n_frames and appends a new trailing dimension of size frame_length
-    y = x_m.unfold(-1, frame_length, hop_length)  # shape: [..., n_frames, frame_length]
-
-    if librosa_order:
-        # Move the new trailing frame_length dim before the n_frames dim
-        y = y.movedim(-1, -2)  # [..., frame_length, n_frames]
-
-    return y    
-
-@frame.register_fake
-def _(x: torch.Tensor, frame_length: int, hop_length: int, dim: int = -1, librosa_order: bool = True) -> torch.Tensor:
-    if dim < 0: axis += x.ndim
-    shape = list(x.shape[:axis]) + [(x.shape[axis] - frame_length) // frame_length, frame_length] + list(x.shape[axis+1:])
-    return torch.empty(shape).to(x)
+    if torch.jit.is_scripting():
+        return _frame(x, frame_length, hop_length, dim, librosa_order)
+    return _frame_eager(x, frame_length, hop_length, dim, librosa_order)
 
 
 def reshape_batches(x: torch.Tensor, dim: int, allow_clone: bool = True):

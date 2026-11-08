@@ -4,6 +4,7 @@ import torchaudio
 import os
 import pytest
 from acids_transforms import transforms, AudioTransform
+from acids_transforms.utils import tracing
 
 
 def get_audio_transforms():
@@ -76,14 +77,32 @@ def test_scriptable(transform_type):
     return True
 
 AUDIO_OUT_DIR = Path("test/tracing")
+
+
+@pytest.fixture(params=tracing.BACKENDS)
+def tracing_backend(request):
+    """traces data-dependent algorithms (PGHI, sine bank, frame) with each backend (see utils.tracing)."""
+    if request.param == "custom_op" and not tracing.HAS_CUSTOM_OPS:
+        pytest.skip("custom operators need torch >= 2.4")
+    previous = tracing.get_backend()
+    tracing.set_backend(request.param)
+    yield request.param
+    tracing.set_backend(previous)
+
+
 @pytest.mark.parametrize("transform_type", get_tracable_transforms())
-def test_tracing(test_files, transform_type):
-    os.makedirs(str(AUDIO_OUT_DIR), exist_ok=True)
+def test_tracing(test_files, transform_type, tracing_backend):
+    out_dir = AUDIO_OUT_DIR / tracing_backend
+    os.makedirs(str(out_dir), exist_ok=True)
     transform = transform_type()
     fns, outs = transform_type.test_tracable_transform(transform, test_files)
+    for name, fn in fns.items():
+        opaque = [n for n in fn.graph.nodes if "acids_transforms" in str(n.target)]
+        if tracing_backend == "pure":
+            assert not opaque, "pure backend : %s has opaque nodes %s" % (name, opaque)
     for k, v in outs.items():
         for i in range(test_files[0].shape[0]):
-            torchaudio.save(str(AUDIO_OUT_DIR / f"{k}_{test_files[1][i]}.wav"), v[i], sample_rate = transform.sr)
+            torchaudio.save(str(out_dir / f"{k}_{test_files[1][i]}.wav"), v[i], sample_rate = transform.sr)
     return True
 
 

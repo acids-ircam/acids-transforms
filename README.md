@@ -87,7 +87,7 @@ Outputs are complex if `"complex"` is in modes (other modes are then cast to com
 
 - exactly, from `"complex"`, (`"real"`, `"imaginary"`), or a magnitude (`"magnitude"`, `"power"`, `"db"`, `"power_density"`) with `"phase"` ;
 - approximately, from a magnitude with `"instantaneous_phase"` or `"instantaneous_frequency"` (integrated phases) ;
-- from a magnitude only, with `inversion_mode` : `"griffin_lim"` (default, fast Griffin-Lim with the framing of the transform), `"random"` (random phase), `"keep_input"` (phase of the last `forward` call) or `"sinebank"`.
+- from a magnitude only, with `inversion_mode` : `"griffin_lim"` (default, fast Griffin-Lim with the framing of the transform), `"random"` (random phase), `"keep_input"` (phase of the last `forward` call) or `"sinebank"` (sinusoidal resynthesis : spectral peaks, refined by quadratic interpolation, with phases continued between frames).
 
 ```python
 import torch
@@ -144,5 +144,5 @@ pytest test
 ## Warnings
 
 - on real-time PGHI : while pghi is usable with RealtimeDGT, there are some known issues with a stream use. This will come very soon!
-- PGHI inversion (`DGT`, `RealtimeDGT`) cannot be traced with `torch.fx` (`make_fx`) : it relies on data-dependent control flow.
+- PGHI, sine bank and `frame` depend on values, which `make_fx` cannot trace. While tracing, they are opaque custom operators (torch >= 2.4 : exact, but traced graphs need `acids_transforms` imported to run) or pure aten approximations (older torch, or `acids_transforms.utils.tracing.set_backend("pure")` : portable graphs). Eager mode and TorchScript always use the exact implementations.
 - this library is still experimental and changes very often. a first "sure" release will come soon!

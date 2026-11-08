@@ -1,4 +1,3 @@
-from turtle import forward
 import torch
 from .base import AudioTransform, InversionEnumType, NotInvertibleError
 from ..utils import frame

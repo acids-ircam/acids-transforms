@@ -1,0 +1,10 @@
+# documentation dependencies (Read the Docs installs these, then the package itself : see .readthedocs.yaml)
+# CPU-only wheels of torch keep the docs build small
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch>=1.10
+torchaudio>=0.10
+numpy>=1.19.1
+sphinx>=7.2
+myst-parser>=2.0
+furo>=2024.1.29
+sphinx-copybutton>=0.5

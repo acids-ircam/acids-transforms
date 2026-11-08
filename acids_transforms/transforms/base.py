@@ -225,6 +225,8 @@ try:
                 return getattr(obj, _fn)(*args, **kwargs)
             return tft_make_fx(_closure, *args, **kwargs)
 
-    _CanTrace = True
+    # tracing relies on symbolic make_fx and on custom operators for data-dependent algorithms (see utils.tracing),
+    # both only reliable from torch 2.4 : transforms are not tracable before.
+    _CanTrace = hasattr(torch.library, "custom_op")
 except ModuleNotFoundError:
     pass
