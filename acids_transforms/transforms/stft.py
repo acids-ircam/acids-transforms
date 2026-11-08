@@ -356,7 +356,7 @@ class STFT(AudioTransform):
     def forward_with_time(self, x: torch.Tensor, time: torch.Tensor):
         transform = self.forward(x)
         n_chunks = transform.size(-2)
-        shifts = torch.arange(n_chunks) * self.hop_length / self.sr
+        shifts = torch.arange(n_chunks, device=transform.device) * self.hop_length / self.sr
         new_shape = [t for t in transform.shape[:-2]]
         new_shape.append(n_chunks)
         new_strides = [0] * (x.ndim-1)

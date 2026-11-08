@@ -61,7 +61,8 @@ intersphinx_mapping = {
 # -- HTML ----------------------------------------------------------------------------------------------------------
 html_theme = "furo"
 html_title = f"acids_transforms {release}"
-html_static_path = ["_static"]
+# only if present : git does not track empty directories
+html_static_path = ["_static"] if os.path.isdir(os.path.join(os.path.dirname(__file__), "_static")) else []
 html_theme_options = {
     "source_repository": "https://github.com/domkirke/acids_transforms/",
     "source_branch": "master",

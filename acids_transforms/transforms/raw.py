@@ -39,9 +39,9 @@ class Mono(AudioTransform):
             if self.mode == "mix":
                 x = (x.sum(-2) / 2).unsqueeze(-2)
             elif self.mode == "right":
-                x = x.index_select(-2, torch.tensor(1))
+                x = x.index_select(-2, torch.tensor(1, device=x.device))
             elif self.mode == "left":
-                x = x.index_select(-2, torch.tensor(0))
+                x = x.index_select(-2, torch.tensor(0, device=x.device))
         if self.normalize:
             x = x / x.max()
         if self.squeeze:
@@ -220,7 +220,7 @@ class Window(AudioTransform):
     def forward_with_time(self, x: torch.Tensor, time: torch.Tensor):
         transform = self.forward(x)
         n_chunks = transform.size(-2)
-        shifts = torch.arange(n_chunks) * self.hop_size / self.sr
+        shifts = torch.arange(n_chunks, device=transform.device) * self.hop_size / self.sr
         new_shape = [t for t in transform.shape[:-2]]
         new_shape.append(n_chunks)
         new_strides = [0] * (x.ndim-1)
@@ -252,10 +252,10 @@ class Window(AudioTransform):
             x = x.reshape(new_shape)
         else:
             if self.inversion_mode == "crop":
-                new_x = x.index_select(self.dim, torch.arange(self.hop_size))
+                new_x = x.index_select(self.dim, torch.arange(self.hop_size, device=x.device))
                 new_x = list(new_x.split(1, self.dim-1))
-                x_tail = x.index_select(dim-1, torch.tensor([x.size(dim-1)-1]).long())
-                x_tail = x_tail.index_select(dim, torch.arange(self.hop_size, x.size(dim)))
+                x_tail = x.index_select(dim-1, torch.tensor([x.size(dim-1)-1], device=x.device).long())
+                x_tail = x_tail.index_select(dim, torch.arange(self.hop_size, x.size(dim), device=x.device))
                 new_x.append(x_tail)
                 # concatenate
                 x = torch.cat(new_x, dim).squeeze(dim-1)

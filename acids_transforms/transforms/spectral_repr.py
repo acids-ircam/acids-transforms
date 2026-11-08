@@ -337,7 +337,7 @@ class IF(_Representation):
     def _get_weighted_window(self, x: torch.Tensor) -> torch.Tensor:
         N = x.size(-2)
         if self.weighted_window.size(-2) != x.size(-2):
-            n = torch.arange(N)
+            n = torch.arange(N, device=x.device, dtype=x.dtype)
             self.weighted_window = (
                 1.5 * N) / (N ** 2 - 1) * (1 - ((n - (N / 2 - 1)) / (N / 2)) ** 2)
         window_shape = [1] * x.ndim
@@ -444,9 +444,9 @@ class SpectralRepresentation(AudioTransform):
             phase=x[1]
         else:
             mag=x.index_select(
-                self.stack, torch.tensor(0)).squeeze(self.stack)
+                self.stack, torch.tensor(0, device=x.device)).squeeze(self.stack)
             phase=x.index_select(
-                self.stack, torch.tensor(1)).squeeze(self.stack)
+                self.stack, torch.tensor(1, device=x.device)).squeeze(self.stack)
         mag=self.magnitude.invert(mag)
         phase=self.phase.invert(phase)
         return mag * torch.exp(phase * torch.full(phase.shape, 1j, device=phase.device))
@@ -500,9 +500,9 @@ class Cartesian(SpectralRepresentation):
             imag=x[1]
         else:
             real=x.index_select(
-                self.stack, torch.tensor(0)).squeeze(self.stack)
+                self.stack, torch.tensor(0, device=x.device)).squeeze(self.stack)
             imag=x.index_select(
-                self.stack, torch.tensor(1)).squeeze(self.stack)
+                self.stack, torch.tensor(1, device=x.device)).squeeze(self.stack)
         real=self.magnitude.invert(real)
         imag=self.phase.invert(imag)
         return real + imag * torch.full(imag.shape, 1j, device=imag.device)

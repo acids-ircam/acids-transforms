@@ -129,18 +129,18 @@ class ComposeAudioTransform(AudioTransform):
             raise TypeError(
                 "ComposeAudioTransform can only be added to other AudioTransforms")
         if isinstance(itm, ComposeAudioTransform):
-            return ComposeAudioTransform(self.transforms + itm.transforms)
+            return ComposeAudioTransform(list(self.transforms) + list(itm.transforms))
         else:
-            return ComposeAudioTransform(self.transforms + [itm])
+            return ComposeAudioTransform(list(self.transforms) + [itm])
 
     def __radd__(self, other):
         if not isinstance(other, AudioTransform):
             raise TypeError(
                 "ComposeAudioTransform can only be added to other AudioTransforms")
         if isinstance(other, ComposeAudioTransform):
-            return ComposeAudioTransform(other.transforms + self.transforms)
+            return ComposeAudioTransform(list(other.transforms) + list(self.transforms))
         else:
-            return ComposeAudioTransform(nn.ModuleList([other]) + self.transforms)
+            return ComposeAudioTransform([other] + list(self.transforms))
 
     def realtime(self):
         return ComposeAudioTransform(transforms=[t.realtime() for t in self.transforms], sr=self.sr)

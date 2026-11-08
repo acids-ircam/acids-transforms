@@ -103,7 +103,7 @@ def _phasegrad_realtime(mag: torch.Tensor, gamma: float, hop_length: int, n_fft:
     #if gamma is None: gamma = 2*torch.pi*((-n_fft**2/(8*torch.log(0.01)))**.5)**2
     fmul = gamma/(hop_length * n_fft)
     Y = torch.empty((mag.shape[0], mag.shape[1]+2,
-                     mag.shape[2]+2), dtype=mag.dtype)
+                     mag.shape[2]+2), dtype=mag.dtype, device=mag.device)
     Y[:, 1:-1, 1:-1] = torch.log(mag)
     Y[:, :, 0] = Y[:, :, 1]
     Y[:, :, -1] = Y[:, :, -2]
@@ -112,7 +112,7 @@ def _phasegrad_realtime(mag: torch.Tensor, gamma: float, hop_length: int, n_fft:
     Y[:, -1, :] = Y[:, -2, :]
     dxdw = (Y[:, 1:-1, 2:] - Y[:, 1:-1, :-2])/2
     dxdt = (3 * Y[..., 2:, 1:-1] - 4 * Y[..., 1:-1, 1:-1] + Y[..., 0:-2, 1:-1])/2
-    fgradw = dxdw/fmul + (2*torch.pi*hop_length/n_fft) * (torch.arange(math.floor(n_fft/2)+1))
+    fgradw = dxdw/fmul + (2*torch.pi*hop_length/n_fft) * (torch.arange(math.floor(n_fft/2)+1, device=mag.device))
     tgradw = -fmul * dxdt + torch.pi
     return (tgradw, fgradw)
 
@@ -377,7 +377,7 @@ class DGT(STFT):
     def forward_with_time(self, x: torch.Tensor, time: torch.Tensor): 
         transform = self.forward(x)
         n_chunks = transform.size(-2)
-        shifts = torch.arange(n_chunks) * self.hop_length / self.sr
+        shifts = torch.arange(n_chunks, device=transform.device) * self.hop_length / self.sr
         new_shape = [t for t in transform.shape[:-2]]
         new_shape.append(n_chunks)
         new_strides = [0] * (x.ndim-1)
@@ -532,8 +532,9 @@ class RealtimeDGT(DGT):
             self.batch_size = [batch_size]
         else:
             self.batch_size = torch.Size(batch_size)
-        self.hgi_mag_buffer = torch.zeros(torch.Size(self.batch_size) + torch.Size([2, int(self.n_fft)//2+1]))
-        self.hgi_phase_buffer = torch.zeros(torch.Size(self.batch_size) + torch.Size([int(self.n_fft)//2+1]))
+        device = self.hgi_mag_buffer.device
+        self.hgi_mag_buffer = torch.zeros(torch.Size(self.batch_size) + torch.Size([2, int(self.n_fft)//2+1]), device=device)
+        self.hgi_phase_buffer = torch.zeros(torch.Size(self.batch_size) + torch.Size([int(self.n_fft)//2+1]), device=device)
         self.sinebank.reset()
 
     @torch.jit.export

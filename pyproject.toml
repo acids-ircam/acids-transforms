@@ -27,7 +27,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-test = ["pytest"]
+test = [
+  "pytest", 
+  "nn_tilde @ git+https://github.com/acids-ircam/nn_tilde"
+]
 
 [project.urls]
 Homepage = "https://github.com/domkirke/acids_transforms"
