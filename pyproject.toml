@@ -3,8 +3,8 @@ requires = ["setuptools >= 77.0.3"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "acids_transforms"
-version = "0.1.4"
+name = "acids-transforms"
+version = "1.0.0"
 authors = [
   { name="Axel Chemla Romeu Santos", email="axel.chemla-romeu-santos@univ-paris8.fr" },
 ]
